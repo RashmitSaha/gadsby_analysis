@@ -11,9 +11,7 @@ from nltk.corpus import stopwords
 from wordcloud import WordCloud
 
 # Ensure NLTK data is downloaded (runs quietly)
-nltk.download('averaged_perceptron_tagger', quiet=True)
-nltk.download('vader_lexicon', quiet=True)
-nltk.download('stopwords', quiet=True)
+nltk.download('all', quiet=True)
 
 # ==========================================
 # 1. SETUP & CONFIGURATION (CSS INJECTION)
