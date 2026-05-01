@@ -8,6 +8,8 @@ import re
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
 from nltk.corpus import stopwords
+from nltk.collocations import BigramCollocationFinder
+from nltk.metrics import BigramAssocMeasures
 from wordcloud import WordCloud
 
 # Ensure NLTK data is downloaded (runs quietly)
@@ -49,9 +51,15 @@ def setup_page():
             border-bottom: 3px solid #3498db; 
             padding-bottom: 8px; 
             margin-top: 40px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-weight: 600;
+        }
+        .section-desc {
+            color: #7f8c8d;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         /* Custom Flexbox Layout for KPIs (Bypassing st.metric) */
@@ -173,6 +181,30 @@ def get_sentiment_arc(sentences):
     df_sent['Rolling Average'] = df_sent['Sentiment'].rolling(window=50, min_periods=1).mean()
     return df_sent
 
+@st.cache_data
+def get_bigram_metrics(clean_tokens):
+    """Calculates Bigram Frequency and Pointwise Mutual Information (PMI)."""
+    bigram_measures = BigramAssocMeasures()
+    finder = BigramCollocationFinder.from_words(clean_tokens)
+    
+    # Filter out pairs that appear less than 5 times to avoid noise
+    finder.apply_freq_filter(5)
+    
+    # 1. Get Top 15 by Frequency
+    freq_bigrams = finder.ngram_fd.most_common(15)
+    df_freq = pd.DataFrame([
+        (f"{bg[0]} {bg[1]}", count) for bg, count in freq_bigrams
+    ], columns=['Bigram', 'Frequency'])
+    
+    # 2. Get Top 15 by PMI Score
+    # Using score_ngrams returns the bigrams sorted by their PMI score
+    pmi_scored = finder.score_ngrams(bigram_measures.pmi)[:15]
+    df_pmi = pd.DataFrame([
+        (f"{bg[0]} {bg[1]}", score) for bg, score in pmi_scored
+    ], columns=['Bigram', 'PMI Score'])
+    
+    return df_freq, df_pmi
+
 def generate_wordcloud_image(clean_tokens):
     stop_words = set(stopwords.words('english'))
     meaningful_words = [w for w in clean_tokens if w not in stop_words and 'e' not in w]
@@ -198,7 +230,6 @@ def render_header_and_kpis(raw_text, clean_tokens):
     e_delta_class = "delta-good" if e_count == 0 else "delta-bad"
     e_delta_text = "The Golden Rule intact" if e_count == 0 else "Uh oh! Rule broken."
 
-    # Pure HTML/CSS structure to replace native st.metric columns
     kpi_html = f"""
     <div class="kpi-container">
         <div class="kpi-card">
@@ -247,7 +278,7 @@ def render_structural_charts(clean_tokens, sentences):
         st.pyplot(fig)
 
 def render_semantic_charts(clean_tokens, sentences):
-    """Renders charts relating to grammar, emotion, and vocabulary."""
+    """Renders charts relating to grammar and emotion."""
     if not clean_tokens: return
     
     c1, c2 = st.columns(2)
@@ -270,6 +301,34 @@ def render_semantic_charts(clean_tokens, sentences):
         ax.set_ylabel("Sentiment Polarity")
         st.pyplot(fig)
 
+def render_ngram_charts(clean_tokens):
+    """Renders collocation bigram charts (Frequency and PMI)."""
+    if not clean_tokens: return
+    
+    st.markdown("<h3 class='section-header'>🔗 Collocations & N-grams (Bigrams)</h3>", unsafe_allow_html=True)
+    st.markdown("<p class='section-desc'>Comparing words that frequently appear together (Frequency) vs. words that have the strongest unique statistical associations (PMI).</p>", unsafe_allow_html=True)
+    
+    df_freq, df_pmi = get_bigram_metrics(clean_tokens)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        fig1, ax1 = plt.subplots(figsize=(8, 5))
+        sns.barplot(data=df_freq, y='Bigram', x='Frequency', ax=ax1, palette="flare")
+        ax1.set_title("Top 15 Bigrams by Frequency", fontsize=12, fontweight='bold', pad=10)
+        ax1.set_ylabel("")
+        st.pyplot(fig1)
+        
+    with c2:
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        sns.barplot(data=df_pmi, y='Bigram', x='PMI Score', ax=ax2, palette="crest")
+        ax2.set_title("Top 15 Bigrams by PMI (Strongest Associations)", fontsize=12, fontweight='bold', pad=10)
+        ax2.set_ylabel("")
+        st.pyplot(fig2)
+
+def render_wordcloud(clean_tokens):
+    """Renders the final core vocabulary wordcloud."""
+    if not clean_tokens: return
+    
     st.markdown("<h3 class='section-header'>☁️ Core Vocabulary Word Cloud</h3>", unsafe_allow_html=True)
     fig, ax = plt.subplots(figsize=(15, 6))
     ax.imshow(generate_wordcloud_image(clean_tokens), interpolation='bilinear')
@@ -289,6 +348,8 @@ def main():
     render_header_and_kpis(raw_text, clean_tokens)
     render_structural_charts(clean_tokens, sentences)
     render_semantic_charts(clean_tokens, sentences)
+    render_ngram_charts(clean_tokens)
+    render_wordcloud(clean_tokens)
     
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #7f8c8d;'>Built with Streamlit, NLTK & Seaborn. Data source: <em>Gadsby</em> by Ernest Vincent Wright.</p>", unsafe_allow_html=True)
