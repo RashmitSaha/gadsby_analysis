@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 import re
+import base64
 
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
@@ -16,27 +17,60 @@ from wordcloud import WordCloud
 nltk.download('all', quiet=True)
 
 # ==========================================
+# 0. HELPER FUNCTIONS
+# ==========================================
+def get_base64_of_bin_file(bin_file):
+    """Reads a local image and converts it to a base64 string for CSS injection."""
+    try:
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except FileNotFoundError:
+        return ""
+
+# ==========================================
 # 1. SETUP & CONFIGURATION (CSS INJECTION)
 # ==========================================
 def setup_page():
     """Configures the Streamlit page and injects custom CSS to replace native styling."""
     st.set_page_config(page_title="Gadsby Analysis", page_icon="📚", layout="wide")
     
-    custom_css = """
+    # Load the background image
+    img_base64 = get_base64_of_bin_file("watermarked_img_10147623884617632140.png")
+    bg_image_property = f"background-image: url('data:image/png;base64,{img_base64}');" if img_base64 else "background-color: #f4f4f9;"
+    
+    custom_css = f"""
     <style>
-        .stApp {
-            background-image: url("https://images.unsplash.com/photo-1516961642265-531546e84af2");
+        /* Apply the base64 background image */
+        .stApp {{
+            {bg_image_property}
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-        }
+        }}
+        
+        /* Glassmorphism/Overlay container to keep text readable against the background */
+        .block-container {{
+            background-color: rgba(255, 255, 255, 0.90);
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            padding-left: 3rem !important;
+            padding-right: 3rem !important;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            max-width: 1200px;
+        }}
+
         /* Hide the default Streamlit top menu and footer for a cleaner app look */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
+        #MainMenu {{visibility: hidden;}}
+        footer {{visibility: hidden;}}
+        header {{background: transparent !important;}}
         
         /* Main Typography and Headers */
-        .main-title { 
+        .main-title {{ 
             text-align: center; 
             color: #1a252f; 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -44,16 +78,17 @@ def setup_page():
             font-weight: 800;
             margin-bottom: 0px;
             padding-bottom: 5px;
-        }
-        .sub-title { 
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }}
+        .sub-title {{ 
             text-align: center; 
-            color: #7f8c8d; 
+            color: #4a5568; 
             font-size: 1.2rem;
             padding-bottom: 30px; 
             font-style: italic;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .section-header { 
+        }}
+        .section-header {{ 
             color: #2c3e50; 
             border-bottom: 3px solid #3498db; 
             padding-bottom: 8px; 
@@ -61,26 +96,26 @@ def setup_page():
             margin-bottom: 10px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-weight: 600;
-        }
-        .section-desc {
-            color: #7f8c8d;
+        }}
+        .section-desc {{
+            color: #4a5568;
             font-size: 1rem;
             margin-bottom: 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        }}
         
         /* Custom Flexbox Layout for KPIs (Bypassing st.metric) */
-        .kpi-container {
+        .kpi-container {{
             display: flex;
             justify-content: space-between;
             gap: 20px;
             margin-bottom: 2rem;
             flex-wrap: wrap;
-        }
+        }}
         
         /* Custom KPI Cards with Gradients and Hover Animations */
-        .kpi-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f1f4f9 100%);
+        .kpi-card {{
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             border: 1px solid #e1e8ed;
             border-left: 5px solid #3498db;
             border-radius: 8px;
@@ -91,41 +126,41 @@ def setup_page():
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .kpi-card:hover {
+        }}
+        .kpi-card:hover {{
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }}
         
         /* KPI Internal Typography */
-        .kpi-title {
+        .kpi-title {{
             font-size: 1rem;
-            color: #95a5a6;
+            color: #718096;
             margin-bottom: 10px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             font-weight: 600;
-        }
-        .kpi-value {
+        }}
+        .kpi-value {{
             font-size: 2.5rem;
             font-weight: 700;
             color: #2c3e50;
             line-height: 1.2;
-        }
-        .kpi-delta {
+        }}
+        .kpi-delta {{
             font-size: 1rem;
             font-weight: 600;
             margin-top: 5px;
-        }
-        .delta-good { color: #27ae60; }
-        .delta-bad { color: #e74c3c; }
+        }}
+        .delta-good {{ color: #27ae60; }}
+        .delta-bad {{ color: #e74c3c; }}
         
         /* Custom Divider */
-        .custom-divider {
+        .custom-divider {{
             height: 2px;
             background: linear-gradient(to right, transparent, #bdc3c7, transparent);
             margin: 40px 0;
-        }
+        }}
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
@@ -204,7 +239,6 @@ def get_bigram_metrics(clean_tokens):
     ], columns=['Bigram', 'Frequency'])
     
     # 2. Get Top 15 by PMI Score
-    # Using score_ngrams returns the bigrams sorted by their PMI score
     pmi_scored = finder.score_ngrams(bigram_measures.pmi)[:15]
     df_pmi = pd.DataFrame([
         (f"{bg[0]} {bg[1]}", score) for bg, score in pmi_scored
@@ -266,7 +300,9 @@ def render_structural_charts(clean_tokens, sentences):
     if not clean_tokens: return
     
     c1, c2 = st.columns(2)
-    sns.set_theme(style="whitegrid")
+    
+    # Use a transparent background for seaborn figures to blend with our container
+    sns.set_theme(style="whitegrid", rc={"axes.facecolor": (0, 0, 0, 0), "figure.facecolor":(0, 0, 0, 0)})
 
     with c1:
         st.markdown("<h3 class='section-header'>📏 Word Length Distribution</h3>", unsafe_allow_html=True)
@@ -300,7 +336,7 @@ def render_semantic_charts(clean_tokens, sentences):
         st.pyplot(fig)
 
     with c2:
-        st.markdown("<h3 class='section-header'>📈 The Emotional Arc (Rolling Sentiment)</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 class='section-header'>📈 The Emotional Arc</h3>", unsafe_allow_html=True)
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.lineplot(data=get_sentiment_arc(sentences), x=get_sentiment_arc(sentences).index, y='Rolling Average', ax=ax, color="#e74c3c", linewidth=2)
         ax.axhline(0, color='black', linestyle='--', linewidth=1)
@@ -359,7 +395,7 @@ def main():
     render_wordcloud(clean_tokens)
     
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #7f8c8d;'>Built with Streamlit, NLTK & Seaborn. Data source: <em>Gadsby</em> by Ernest Vincent Wright.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #7f8c8d; font-weight: bold;'>Built with Streamlit, NLTK & Seaborn. Data source: <em>Gadsby</em> by Ernest Vincent Wright.</p>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
