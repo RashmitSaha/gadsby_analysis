@@ -24,6 +24,13 @@ def setup_page():
     
     custom_css = """
     <style>
+        .stApp {
+            background-image: url("https://images.unsplash.com/photo-1516961642265-531546e84af2");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
         /* Hide the default Streamlit top menu and footer for a cleaner app look */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
