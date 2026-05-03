@@ -36,7 +36,7 @@ def setup_page():
     st.set_page_config(page_title="Gadsby Analysis", page_icon="📚", layout="wide")
     
     # Load the background image
-    img_base64 = get_base64_of_bin_file("watermarked_img_10147623884617632140.png")
+    img_base64 = get_base64_of_bin_file("gadsby_image.png")
     bg_image_property = f"background-image: url('data:image/png;base64,{img_base64}');" if img_base64 else "background-color: #f4f4f9;"
     
     custom_css = f"""
